@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Interactive Menu - Cafe</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f0ede8;
+            overflow: hidden;
+            height: 100dvh;
+        }
+
+        .menu-container {
+            width: 100%;
+            max-width: 1024px;
+            margin: 0 auto;
+            background: white;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* ── Navigation Bar ─────────────────────────── */
+        .nav-bar {
+            position: relative;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            padding: 12px 16px;
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+            flex-shrink: 0;
+        }
+
+        .nav-bar::-webkit-scrollbar { display: none; }
+
+        .nav-btn {
+            padding: 9px 18px;
+            background: transparent;
+            border: 1.5px solid #e0e0e0;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: clamp(11px, 2.5vw, 14px);
+            font-weight: 600;
+            white-space: nowrap;
+            transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.2s;
+            color: #555;
+            letter-spacing: 0.01em;
+        }
+
+        .nav-btn:hover { background: #f5f5f5; transform: translateY(-1px); }
+
+        .nav-btn.active {
+            background: #1a1a1a;
+            color: white;
+            border-color: #1a1a1a;
+        }
+
+        /* ── Slider Track ───────────────────────────── */
+        .pages-track-outer {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+            padding-bottom: 50px; /* space for dots */
+        }
+
+        .pages-track {
+            display: flex;
+            height: 100%;
+            will-change: transform;
+        }
+
+        .pages-track.animating {
+            transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .menu-page {
+            flex-shrink: 0;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: clamp(10px, 3vw, 32px) clamp(10px, 4vw, 40px);
+        }
+
+        .menu-image {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            border-radius: 8px;
+            display: block;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        /* ── Dot Indicator ──────────────────────────── */
+        .dot-indicator {
+            position: absolute;
+            bottom: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 7px;
+            align-items: center;
+            z-index: 99;
+            background: rgba(0, 0, 0, 0.28);
+            padding: 7px 13px;
+            border-radius: 999px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .dot {
+            height: 7px;
+            width: 7px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.4);
+            cursor: pointer;
+            transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), background 0.35s ease;
+        }
+
+        .dot.active { background: white; width: 22px; }
+
+        /* ── Loading ────────────────────────────────── */
+        .loading {
+            position: fixed;
+            inset: 0;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 0.4s ease;
+        }
+
+        .loading.hidden { opacity: 0; pointer-events: none; }
+
+        .loading-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            color: #999;
+            font-size: 13px;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .spinner {
+            width: 28px;
+            height: 28px;
+            border: 2px solid #e8e8e8;
+            border-top-color: #333;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Gesture hint ───────────────────────────── */
+        .gesture-hint {
+            position: fixed;
+            bottom: 72px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.55);
+            color: white;
+            padding: 7px 15px;
+            border-radius: 999px;
+            font-size: 12px;
+            z-index: 98;
+            white-space: nowrap;
+            pointer-events: none;
+            animation: hintIn 0.4s ease 0.8s both, hintOut 0.5s ease 3.8s forwards;
+        }
+
+        @keyframes hintIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+            to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        @keyframes hintOut { to { opacity: 0; visibility: hidden; } }
+
+        /* ── Responsive ─────────────────────────────── */
+        @media (max-width: 480px) {
+            .nav-btn { padding: 7px 13px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="loading" id="loading">
+    <div class="loading-inner">
+        <div class="spinner"></div>
+        <span>Loading Menu</span>
+    </div>
+</div>
+
+<div class="menu-container">
+    <div class="nav-bar" id="navBar"></div>
+
+    <div class="pages-track-outer" id="trackOuter">
+        <div class="pages-track" id="pagesTrack"></div>
+        <div class="dot-indicator" id="dotIndicator"></div>
+    </div>
+</div>
+
+<div class="gesture-hint">← Swipe untuk navigasi →</div>
+
+<script>
+    const pages = [
+        { title: 'Signature Espresso', image: '01 Signature Espresso Based.png' },
+        { title: 'Manual Brew',        image: '00 Manual Brew Selection.png' },
+        { title: 'Others Menu',        image: '00 Others Menu.png' },
+        { title: 'Signature Grilled',  image: 'FOOD MENU 2026 01.png' },
+        { title: 'Rice Bowl',          image: 'FOOD MENU 2026 02.png' },
+        { title: 'Pasta & Sharing',    image: 'FOOD MENU 2026 03.png' },
+    ];
+
+    let current = 0;
+    let isAnimating = false;
+
+    const track    = document.getElementById('pagesTrack');
+    const navBar   = document.getElementById('navBar');
+    const dots     = document.getElementById('dotIndicator');
+    const outer    = document.getElementById('trackOuter');
+
+    /* ── Build ─────────────────────────────────────── */
+    function buildPages() {
+        const n = pages.length;
+        track.style.width = `${n * 100}%`;
+
+        track.innerHTML = pages.map((p, i) => `
+            <div class="menu-page" style="width:${100/n}%">
+                <img src="${p.image}" alt="${p.title}" class="menu-image"
+                     draggable="false" loading="${i === 0 ? 'eager' : 'lazy'}">
+            </div>
+        `).join('');
+
+        setTrackPos(false);
+    }
+
+    function buildNav() {
+        navBar.innerHTML = pages.map((p, i) => `
+            <button class="nav-btn ${i === current ? 'active' : ''}" onclick="goTo(${i})">${p.title}</button>
+        `).join('');
+    }
+
+    function buildDots() {
+        dots.innerHTML = pages.map((_, i) => `
+            <div class="dot ${i === current ? 'active' : ''}" onclick="goTo(${i})"></div>
+        `).join('');
+    }
+
+    /* ── Motion ────────────────────────────────────── */
+    function setTrackPos(animate) {
+        if (animate) {
+            track.classList.add('animating');
+            isAnimating = true;
+            track.addEventListener('transitionend', () => {
+                track.classList.remove('animating');
+                isAnimating = false;
+            }, { once: true });
+        }
+        track.style.transform = `translateX(${-(current / pages.length) * 100}%)`;
+    }
+
+    /* ── Navigate ──────────────────────────────────── */
+    function goTo(index) {
+        if (index === current || isAnimating) return;
+        if (index < 0 || index >= pages.length) return;
+        current = index;
+        setTrackPos(true);
+        buildNav();
+        buildDots();
+        // Scroll active nav pill into view
+        navBar.querySelectorAll('.nav-btn')[current]
+              ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+
+    function step(dir) { goTo(current + dir); }
+
+    /* ── Touch / Swipe ─────────────────────────────── */
+    let tx0 = 0, ty0 = 0;
+
+    outer.addEventListener('touchstart', e => {
+        tx0 = e.touches[0].clientX;
+        ty0 = e.touches[0].clientY;
+    }, { passive: true });
+
+    outer.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - tx0;
+        const dy = e.changedTouches[0].clientY - ty0;
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 44) {
+            step(dx < 0 ? 1 : -1);
+        }
+    }, { passive: true });
+
+    /* ── Keyboard ──────────────────────────────────── */
+    document.addEventListener('keydown', e => {
+        if (e.key === 'ArrowLeft')  step(-1);
+        if (e.key === 'ArrowRight') step(1);
+    });
+
+    /* ── Init ──────────────────────────────────────── */
+    buildPages();
+    buildNav();
+    buildDots();
+
+    // Hide loader when first image ready
+    const firstImg = track.querySelector('img');
+    const hideLoader = () => {
+        const loader = document.getElementById('loading');
+        if (!loader) return;
+        loader.classList.add('hidden');
+        setTimeout(() => loader.remove(), 420);
+    };
+
+    if (firstImg.complete) {
+        setTimeout(hideLoader, 300);
+    } else {
+        firstImg.addEventListener('load',  hideLoader, { once: true });
+        firstImg.addEventListener('error', hideLoader, { once: true });
+        setTimeout(hideLoader, 2500); // failsafe
+    }
+</script>
+</body>
+</html>
